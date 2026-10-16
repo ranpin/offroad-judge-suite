@@ -1,0 +1,9 @@
+%YAML:1.0
+requestListenPort: 6000
+scoreListenPort: 6003
+clientCommandPort: 6001
+clientTokenPort: 6002
+tcpWaitTime: 10000
+dataPath: "./data/exams/EXAM-2021-PREB-OD;./data/exams/EXAM-2020-001-2-TM-F"
+outputScoreFile: "scores.txt"
+playerInfoFile: "players.csv"

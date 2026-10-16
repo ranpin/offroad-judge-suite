@@ -1,0 +1,7 @@
+build/*
+devel/*
+logs/*
+2020*
+.catkin_tools/*
+*.user
+*.workspace

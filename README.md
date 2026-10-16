@@ -20,6 +20,7 @@
   - [裁判客户端 (Java)](#裁判客户端-java)
   - [评判应用 (C++/Qt)](#评判应用-cqt)
   - [参赛端 Mock 客户端 (C++/Qt)](#参赛端-mock-客户端-cqt)
+  - [服务器端可视化 (ROS/C++)](#服务器端可视化-rosc)
 - [评测流程时序图](#评测流程时序图)
 - [通信协议规范](#通信协议规范)
 - [数据格式规范](#数据格式规范)
@@ -119,7 +120,7 @@
 ## 目录结构
 
 ```
-kyxz-open/
+offroad-judge-suite/
 ├── README.md                          # 本文件
 ├── LICENSE                            # MIT
 ├── .gitignore                         # 忽略编译产物 / GT / 二进制
@@ -128,7 +129,8 @@ kyxz-open/
 │   ├── architecture.md                # 系统架构设计说明
 │   ├── encryption-scheme.md           # 数据加密方案设计
 │   ├── scoring-algorithm.md           # 评分算法详解
-│   └── communication-protocol.md      # 三端通信协议
+│   ├── communication-protocol.md      # 三端通信协议
+│   └── reproduce-from-scratch.md      # 从零复现：构建 + 三端联调
 │
 ├── tools/                             # 可复用工具集
 │   └── data-encryptor/                # 多传感器数据加密工具
@@ -147,6 +149,13 @@ kyxz-open/
 │   └── su/                            # SU 赛道模拟客户端源码
 │       └── (结构同 od，处理本地/全局定位)
 │
+├── server-visualizer/                 # ROS 服务器端可视化（唯一带源码的服务器组件）
+│   ├── src/server_node/               # 自定义 ROS 包：Qt GUI + TCP 下发 + RViz 发布
+│   ├── config.yml                     # 端口 / 数据路径（脱敏）
+│   ├── players.csv                    # 参赛队/IP 列表样例
+│   ├── default.rviz                   # RViz 显示配置
+│   └── README.md                      # 依赖 velodyne / rviz_car_model 与构建说明
+│
 ├── configs/                           # 配置模板（脱敏）
 │   ├── judge-client.properties.example
 │   ├── judge-app.yml.example
@@ -157,6 +166,10 @@ kyxz-open/
     ├── competitor-entry-template.txt  # 参赛软件入口代码模板
     └── competitor-usage-readme.txt    # 参赛端使用说明
 ```
+
+> **哪些组件只有源码、哪些只有二进制？**
+> 本仓库对**可公开的部分提供源码**：数据加密工具（Python）、参赛端 Mock 客户端（C++/Qt）、服务器端可视化（ROS/C++）。
+> **比赛主服务器（server.jar）与 Java 裁判客户端（client.jar）** 属现场交付二进制，其 Java 包名内含原始机构标识，**未在本仓库发布源码，也不上传二进制**——其对外行为已在 [`docs/communication-protocol.md`](docs/communication-protocol.md) 完整规格化，可据此自行实现替代。**评判应用（judge_app）** 同理仅有 Linux 二进制。完整复现路径见 [`docs/reproduce-from-scratch.md`](docs/reproduce-from-scratch.md)。
 
 ---
 
@@ -298,6 +311,39 @@ make -j$(nproc)
    ↓
 [结束] 收到 stop 指令或超时
 ```
+
+---
+
+### 服务器端可视化 (ROS/C++)
+
+**位置**：[`server-visualizer/`](server-visualizer/)
+
+**功能**：比赛服务器侧的可视化 / 下发节点。基于 **ROS + Qt + RViz**，向裁判链路下发 token 与指令、接收各队分数，并在 RViz 中实时显示车辆位姿、GPS、图像与真值点云。
+
+**这是本评测系统里唯一附带源码的服务器端组件**（主服务器 server.jar 与 Java 裁判客户端 client.jar 均为二进制交付，不公开）。
+
+**代码结构**：
+
+```
+server-visualizer/src/server_node/
+├── src/cserver.cpp           # TCP 指令/Token 下发（端口 6001/6002）
+├── src/cscoreserver.cpp      # 接收各队分数（端口 6003）
+├── src/*Publisher.cpp        # gps / image / odGt / suGt / tf 的 RViz 发布器
+├── src/coordinateconvertion.cpp / wgs84tocartesian.hpp   # WGS84→笛卡尔坐标转换
+└── ui/main_window.ui         # Qt Designer 主界面
+```
+
+**依赖（本仓库未内置，需自行检出到同一 catkin 工作区）**：`velodyne_*`（velodyne 官方驱动）、`rviz_car_model`、ROS Melodic。
+
+**构建**：
+
+```bash
+mkdir -p ~/catkin_ws/src && cd ~/catkin_ws/src
+# 放入 server_node + velodyne + rviz_car_model
+cd ~/catkin_ws && catkin_make && source devel/setup.bash
+```
+
+> 该目录源码来自项目历史调试材料，**已脱敏**：移除原始机构/赛事标识与个人署名，替换个人绝对路径与示例邮箱。
 
 ---
 
