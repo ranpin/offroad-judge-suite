@@ -1,0 +1,16 @@
+%YAML:1.0
+picture_path: "J:\\Contest\\2021-FinalA-OD\\2021-FinalA-OD-Camera\\"
+timeStamp_path: "J:\\Contest\\2021-FinalA-OD\\2021-FinalA-OD-Groundtruth\\2021-FinalA-OD-Camera-Timestamp.csv"
+path_of_gt: "J:\\Contest\\2021-FinalA-OD\\2021-FinalA-OD-Groundtruth\\gt_detection.csv"
+
+picture_path: "J:\\Contest\\2021-FinalB-OD\\2021-FinalB-OD-Camera\\"
+timeStamp_path: "J:\\Contest\\2021-FinalB-OD\\2021-FinalB-OD-Groundtruth\\2021-FinalB-OD-Camera-Timestamp.csv"
+path_of_gt: "J:\\Contest\\2021-FinalB-OD\\2021-FinalB-OD-Groundtruth\\gt_detection.csv"
+
+picture_path: "J:\\Contest\\2021-PreA-OD\\2021-PreA-OD-Camera\\"
+timeStamp_path: "J:\\Contest\\2021-PreA-OD\\2021-PreA-OD-Groundtruth\\2021-PreA-OD-Camera-Timestamp.csv"
+path_of_gt: "J:\\Contest\\2021-PreA-OD\\2021-PreA-OD-Groundtruth\\gt_detection.csv"
+
+picture_path: "J:\\Contest\\2021-PreB-OD\\2021-PreB-OD-Camera\\"
+timeStamp_path: "J:\\Contest\\2021-PreB-OD\\2021-PreB-OD-Groundtruth\\2021-PreB-OD-Camera-Timestamp.csv"
+path_of_gt: "J:\\Contest\\2021-PreB-OD\\2021-PreB-OD-Groundtruth\\gt_detection.csv"

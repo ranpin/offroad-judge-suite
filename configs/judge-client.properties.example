@@ -1,0 +1,44 @@
+﻿# 本地接收服务器指令的端口
+local.cmd.server.port=6001
+# 本地接收待测软件指令的端口
+local.cmd.soft.port=7000
+# 本地接收答案的端口号
+local.answer.soft.port=7003
+# 待测软件接收指令的端口号
+soft.cmd.socket.port=7001
+# 待测软件接收token的端口
+soft.token.socket.port=7002
+# 待测软件IP
+soft.ip=127.0.0.1
+
+# 服务器IP
+server.ip=127.0.0.1
+# 本地IP，要发送给服务器
+local.ip=127.0.0.1
+# 考题下载的路径
+local.exam.path=./data/exams
+
+
+# 准备考试最大时长，默认5分钟
+prepare.timeout=300000
+answer.timeout=1800000
+
+
+
+
+
+# token发送时间策略
+token.send.strategy=com.example.soft.token.FixTimeSendStrategy
+# 单机测试
+client.test.with.vehicle=true
+client.test.with.vehicle.detection.file=./data/exams/EXAM-2023-001-OD/Raw-Example-001-Groundtruth/gt_detection.csv
+client.test.with.vehicle.token.file=./data/exams/EXAM-2023-001-OD/token.csv
+# 心跳检测是否可用，默认true
+client.soft.heartbeat.enable=false
+# 心跳间隔，默认10000
+client.soft.heartbeat.interval=10000
+# 连续几次连接超时，认为待测软件离线，将终止考试
+client.soft.heartbeat.death.count=3
+
+
+

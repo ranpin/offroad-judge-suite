@@ -1,0 +1,74 @@
+﻿%YAML:1.0
+RequestSendPort: 6000
+ScoreSendPort: 6003
+ServerCommandListenPort: 6001
+ServerTokenListenPort: 6002
+ClientCommandListenPort: 7000
+ClientAnswerListenPort: 7003
+ClientCommandForward: 7001
+ClientTokenForward: 7002
+
+#**************************Server IP************************
+#server
+Ip: "127.0.0.1"
+#Ip: "127.0.0.1"
+#OD
+IoUThreshold: 0.8
+ODLocThreshLmin: 0.5
+ODLocThreshLmax: 1.0
+ODErrorThreshold: 5
+ODImgMaxNum: 10
+
+#SU
+SULocThreshLpmin: 0.5
+SULocThreshLpmax: 1.0
+SULocThreshLamin: 0.5
+SULocThreshLamax: 1.0
+SULocWeightp: 0.7
+SULocWeighta: 0.3
+SULocTimethresh: 5000
+SUMapTimethresh: 5000
+SUGlobalTimethresh: 100000
+SUGlobalThreshLpmin: 0.5
+SUGlobalThreshLpmax: 2.0
+
+#SCORE
+#Accuracy score
+ODWeight_0: 1.0
+# Time score
+ODWeight_1: 1.0
+# Image score
+ODWeight_2: 1.0
+# Localization score
+ODWeight_3: 1.0
+# Local localization time score
+SUWeight_0: 50.0
+# Local localization score
+SUWeight_1: 100.0
+# Scene understanding time score
+SUWeight_2: 50.0
+# Scene understanding score
+SUWeight_3: 100.0
+# Global localization time score
+SUWeight_4: 50.0
+# Global localization score
+SUWeight_5: 150.0
+
+
+maxscore: 1000
+scores:
+ - 500
+ - 500
+
+#**************************************************************
+#gt_path
+#filepath: "../DataForTeamDebugAndMockExam/ForDebug/EXAM-2020-001-OD-Token/Raw-001-Groundtruth"
+#filepath: "./data/exams/EXAM-2023-001-OD/Raw-Example-001-Groundtruth"
+#filepath: "./data/exams/EXAM-2023-001-TM/Raw-Example-001-Groundtruth"
+filepath: "./data/exams/EXAM-2023-001-OD/Raw-Example-001-Groundtruth"
+
+
+#*********************local pos**************************
+exampath: "./data/tmp-img/"
+imgstorepath: "./data/tmp-img/"
+examidx: "Raw-Example-001"

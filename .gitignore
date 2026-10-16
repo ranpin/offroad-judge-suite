@@ -1,0 +1,56 @@
+# Build artifacts
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.lib
+*.a
+build/
+debug/
+release/
+qrc_*.cpp
+moc_*.cpp
+moc_*.h
+ui_*.h
+Makefile*
+*.pro.user*
+.qmake.stash
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Java
+*.class
+*.jar
+target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local data
+data/
+exams/
+*.pcap
+*.lms
+*.bag
+*.xlsx
+
+# GT (never upload ground truth)
+gt_*.csv
+token*.csv

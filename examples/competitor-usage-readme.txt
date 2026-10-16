@@ -1,0 +1,4 @@
+运行前，请修改config.yml文件
+picture_path:改为调试数据的Camera文件夹，注意末尾有分隔符
+timeStamp_path:改为调试数据的Camera-Timestamp.csv
+path_of_gt：改为调试数据的真值，一般存放在调试数据xxx-groundtruth文件夹下，是一个名叫“gt_detection.csv”的文件

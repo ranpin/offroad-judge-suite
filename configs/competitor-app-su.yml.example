@@ -1,0 +1,12 @@
+%YAML:1.0
+gt_path: "J:\\Contest\\2021-FinalA-TM\\2021-FinalA-TM-Groundtruth\\"
+task_path: "J:\\Contest\\2021-FinalA-TM\\2021-FinalA-TM-Task.txt"
+
+gt_path: "J:\\Contest\\2021-FinalB-TM\\2021-FinalB-TM-Groundtruth\\"
+task_path: "J:\\Contest\\2021-FinalB-TM\\2021-FinalB-TM-Task.txt"
+
+gt_path: "J:\\Contest\\2021-PreA-TM\\2021-PreA-TM-Groundtruth\\"
+task_path: "J:\\Contest\\2021-PreA-TM\\2021-PreA-TM-Task.txt"
+
+gt_path: "J:\\Contest\\2021-PreB-TM\\2021-PreB-TM-Groundtruth\\"
+task_path: "J:\\Contest\\2021-PreB-TM\\2021-PreB-TM-Task.txt"

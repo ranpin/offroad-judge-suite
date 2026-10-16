@@ -1,0 +1,30 @@
+﻿******************MockClient - main.cpp*******************
+int main(int argc, char *argv[])
+{
+    QCoreApplication a(argc, argv);
+    std::string path_of_answer;
+    cv::FileStorage fs("config.yml", cv::FileStorage::READ);
+    fs["path_of_gt"] >> path_of_answer;
+    GroundTruthFile gtfile(path_of_answer,true);
+    GroundTruthData gtdata;
+
+******************************************************************
+
+******************MockClient - main.cpp*******************
+
+头部加入#include <opencv2/opencv.hpp>
+
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication a(argc, argv);
+    cv::FileStorage fs("config.yml", cv::FileStorage::READ);
+
+    std::string main_path;
+    std::string task_path;
+    fs["gt_path"] >> main_path;
+    fs["task_path"] >> task_path;
+
+
+(.pro中要加入opencv依赖)
+******************************************************************
