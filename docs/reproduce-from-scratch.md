@@ -33,7 +33,7 @@ sudo apt install -y openjdk-8-jre libgl1 libxkbcommon-x11-0 libusb-1.0-0 \
 
 ### 2. 准备一套考题数据
 真实考题数据不在本仓库（涉密）。两种替代：
-- **用本地归档**：把 `test_data/20230506-4-1-OD/` 拷到机器上。
+- **用本地归档**：把本地归档的考题目录（形如 `test_data/EXAM-<date>-OD/`）拷到机器上。
 - **自造示例**：按数据格式（见 `encryption-scheme.md`）准备一个 `Raw-*` 目录，用 `tools/data-encryptor/` 加密，产出加密包 + `token.csv`。
 
 ### 3. 配置三端（保持端口/IP 一致）
@@ -52,9 +52,16 @@ cd judge_app && export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH && export QT_PL
 cd judge-client && bash start.sh
 # (3) 参赛端 C（本地归档 simulate/OD_Linux，或直接运行下方源码构建产物）
 cd simulate/OD_Linux && export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH && ./MockClient &
-# (4) 触发考题：服务器 GUI 或手动 nc 127.0.0.1 6001 发送 START,<考题路径>
+# (4) 触发考题：向裁判客户端 A 的 6001 文本端口按行发送（竖线分隔、UTF-8、\n 结尾）：
+#       readyExam|{}\n        -> A 在 local.exam.path 解压 examLib.zip 后向 C 的 7001 发 02 30 03
+#       beginExam|{"examLib":1,"port":6000}\n  -> A 向 C 的 7001 发 02 31 03，并连 server:6000 收答案
+#   （6001 协议细节见 communication-protocol.md；此路径依赖专有 examLib.zip 考题包）
 ```
 验证：裁判日志出现 START→token→答案→SCORE 流转；`Report.csv` 每行有分数。
+
+> **无专有考题包时**：A 的 `readyExam` 会先在 `local.exam.path` 解压 `examLib.zip`，
+> 缺失则不会向 C 下发 `02 30 03`。若没有该包，改用**路径二·最小闭环**（`judge_server.py`
+> 直接扮演下发端驱动源码构建的 C），无需任何归档二进制。
 
 ---
 
@@ -62,12 +69,36 @@ cd simulate/OD_Linux && export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH && ./Mo
 
 ### 参赛端 Mock 客户端（C++/Qt）
 ```bash
+sudo apt install -y qtbase5-dev build-essential libopencv-dev   # 标准 Ubuntu 即可
 cd mock-client/od
-qmake MockClient.pro      # 需在 .pro 里配置 OPENCV/LIBS 指向本机 OpenCV 3.4 / Qt5
+qmake MockClient.pro        # .pro 自动探测 pkg-config(opencv4)，否则回退 opencv_world
 make -j$(nproc)
-./MockClient              # 作为 TCP 客户端连裁判 7001/7002，上传答案到 7003
+./MockClient                # 交互输入 y / 0；C 是 7001/7002 服务端，收到开始帧后
+                            # 反向连裁判的 7000(就绪)/7003(答案) 上传
 ```
 SU 赛道同理：`cd ../su && qmake && make`。
+
+### 路径二·最小闭环（无专有组件，已实测复现）
+
+仅凭本仓库即可跑通一次端到端协议闭环——用 `tools/soft-judge-reference/judge_server.py`
+扮演“服务器+裁判下发端”，直接驱动**源码构建**的 C，不依赖 `client.jar`/`LocalClient`/`examLib.zip`：
+
+```bash
+# 1) 构建并启动参赛端 C（config.yml 指向本地考题数据；gt 放在源码约定的相对路径）
+cd mock-client/od && qmake && make
+#   config.yml: picture_path=<...>/Raw-*-Camera/  timeStamp_path=<...>/Raw-*-Camera/timestamp.csv
+#   gt 需位于 ./data/exams/EXAM-OD-001/Raw-001-Groundtruth/gt_detection.csv
+printf 'y\n0\n' | ./MockClient &        # 打印 "Waiting for start signal......"
+
+# 2) 运行参考下发端
+python3 ../../tools/soft-judge-reference/judge_server.py --token-csv <...>/token.csv
+```
+
+实测结果（Ubuntu 24.04 / Qt 5.15 / OpenCV 4.6，单机 127.0.0.1）：
+- C 打印 `Receive start signal.` 与 `Send start single to server.`；
+- 下发端收到就绪帧 `023203`，回放全部 token 后 C 上传 **111 条答案帧**，
+  timestamp 单调递增、可解码出 box / lon-lat / 图像尺寸等全字段；
+- 判定输出：`闭环贯通（START→token→答案 全链路）`。
 
 ### 数据加密工具（Python）
 ```bash
@@ -104,19 +135,23 @@ rosrun server_node server_node    # 或按需 roslaunch
 | 6001 | 服务器 ↔ 裁判客户端 | 考题指令 / 分数上传 |
 | 6002 | 裁判客户端 ↔ 评判应用 | 评判指令下发 |
 | 6003 | 评判应用 → 裁判客户端 | 实时分数 |
-| 7000 | 参赛端 → 裁判客户端 | 就绪信号 |
-| 7001 | 裁判客户端 → 参赛端 | 指令（考题路径 / start / stop）|
-| 7002 | 裁判客户端 → 参赛端 | 按时间戳下发 token |
-| 7003 | 参赛端 → 裁判客户端 | 答案上传 |
+| 7000 | 参赛端 → 裁判客户端 | 就绪/结束帧（`02 32 03` / `02 35 03`）|
+| 7001 | 裁判客户端 → 参赛端 | 指令帧（定长 3B：`02 30 03` 准备 / `02 31 03` 开始 / `02 35 03` 结束）|
+| 7002 | 裁判客户端 → 参赛端 | token 帧（定长 12B，大端 timestamp+type+key）|
+| 7003 | 参赛端 → 裁判客户端 | 答案上传（变长，含裁剪图）|
+
+> 端口**监听方**：C(参赛端) 监听 7001/7002 作为服务端；裁判客户端/下发端监听 7000/7003。
+> 建立连接的方向与消息逻辑方向相反，详见 `communication-protocol.md`。
 
 ---
 
 ## 复现自检清单
 
 - [ ] 加密工具能对新数据产出加密包 + `token.csv`
-- [ ] `mock-client` qmake 构建通过，能连裁判并收发 token/答案
-- [ ] 三端（或 A/B 用归档二进制 + C 用源码）按序启动，端口无冲突
-- [ ] 一次完整答题：裁判日志 START→token→答案→SCORE 闭环
+- [x] `mock-client` 在标准 Ubuntu(qtbase5-dev+libopencv-dev) `qmake && make` 构建通过
+- [x] **最小闭环**：源码构建的 C + `judge_server.py` 跑通 START→token→答案（实测 111 答案帧）
+- [ ] 三端（A/B 用归档二进制 + C 用源码）按序启动，端口无冲突（需专有归档）
+- [ ] 一次完整答题：裁判日志 START→token→答案→SCORE 闭环（需 examLib.zip 考题包）
 - [ ] 最终分数落在 0–500（OD）或 0–1000（OD+SU）
 - [ ] （可选）server-visualizer 在 RViz 显示车辆与点云
 

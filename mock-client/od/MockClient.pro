@@ -29,6 +29,13 @@ SOURCES += main.cpp \
     groundtruthfile.cpp
 
 # Default rules for deployment.
-INCLUDEPATH += /usr/local/include
-LIBS += -L/usr/local/lib
-LIBS += -lopencv_world
+# OpenCV linkage: prefer pkg-config (stock Ubuntu, apt split libs); fall back to
+# the bundled unified world lib used by the delivered runtime layout.
+packagesExist(opencv4) {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += opencv4
+} else {
+    INCLUDEPATH += /usr/local/include
+    LIBS += -L/usr/local/lib
+    LIBS += -lopencv_world
+}

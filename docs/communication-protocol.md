@@ -20,99 +20,62 @@
                                     └──────────────┘
 ```
 
-## 2. 端口清单
+## 2. 端口清单（经真实运行时核验）
 
-| 端口 | 归属方 | 方向 | 用途 |
-|------|--------|------|------|
-| **6001** | 裁判客户端 → 服务器 | Server-Client | 双向：服务器下发考题、上传分数 |
-| **6002** | 裁判客户端 ↔ 评判应用 | 内部 IPC | 评判指令下发 |
-| **6003** | 评判应用 → 裁判客户端 | 内部 IPC | 上传实时分数 |
-| **7000** | 参赛软件 → 裁判客户端 | Client-Judge | 参赛软件就绪通知 |
-| **7001** | 裁判客户端 → 参赛软件 | Judge-Client | 指令转发（考题路径、开始/结束）|
-| **7002** | 裁判客户端 → 参赛软件 | Judge-Client | **Token 按时间戳下发** |
-| **7003** | 参赛软件 → 裁判客户端 | Client-Judge | **答案上传** |
+> 说明：以下方向为**实测确认**。裁判客户端在 `6001/7000/7003` 上作为**服务端**监听；参赛软件在 `7001/7002` 上作为**服务端**监听；两端互为客户端主动连接对方。
+
+| 端口 | 监听方(Server) | 连接方(Client) | 用途 |
+|------|----------------|----------------|------|
+| **6001** | 裁判客户端 | 比赛服务器 | 服务器下发考题控制指令（**文本、按行、竖线分隔**，见 3.1）|
+| **7000** | 裁判客户端 | 参赛软件 | 参赛软件就绪/结束通知（二进制帧，见 3.2）|
+| **7003** | 裁判客户端 | 参赛软件 | 参赛软件上传答案（二进制帧，见 3.4）|
+| **7001** | 参赛软件 | 裁判客户端 | 下发考试指令：开始准备 / 开始 / 结束（二进制帧，见 3.2）|
+| **7002** | 参赛软件 | 裁判客户端 | 按时间戳下发 token（二进制帧，见 3.3）|
+| **6000** | 比赛服务器 | 裁判客户端 | 裁判客户端回传答案/分数（`beginExam` 指令中的 `port` 指定）|
+
+> 评判应用（独立评分器）与裁判客户端之间另有一组本机 IPC 端口，属可选的分离部署；单机自测模式下裁判客户端可依据预载真值自行计分，评判应用不在此闭环内。
 
 ## 3. 消息格式
 
-### 3.1 服务器指令（端口 6001）
+### 3.1 服务器控制指令（端口 6001，文本）
 
-**Server → Judge Client**：
+**Server → Judge Client**：**按行**读取（UTF-8，`\n` 结尾），每行以竖线 `|` 分隔命令名与参数（参数为 JSON 对象，宽松语法）：
 ```
-<command>[,<param>]\n
+<command>|<jsonArgs>\n
 ```
+命令枚举（实测确认）：
+| 命令 | 参数示例 | 说明 |
+|------|----------|------|
+| `dispathExam` | `{examLib:1, exam:.., examGroup:.., gameOrg:.., port:.., examType:..}` | 下发考题元数据（题型等）|
+| `downfnsh` | `{gameOrg:18, ip:"..", exam:, port:5001}` | 考题下载完成通知 |
+| `readyExam` | `{}` | 准备考试 → 裁判端在 `7001` 下发**开始准备帧** `0x02 0x30 0x03` |
+| `beginExam` | `{examLib:1, port:6000}` | 开始考试 → 连接 `server.ip:port` 上传答案；在 `7001` 下发**开始帧** `0x02 0x31 0x03`；启动 token 下发 |
 
-命令枚举：
-| 命令 | 参数 | 说明 |
-|------|------|------|
-| `START` | 考题路径 | 开始答题 |
-| `STOP` | — | 立即结束 |
-| `PAUSE` | — | 暂停计时 |
-| `RESUME` | — | 继续计时 |
-| `LOAD` | 题目 ID | 预加载题目 |
+> 参赛软件对 `7001` 上的指令采用**定长 3 字节**读取，`0x02`=STX、`0x03`=ETX，中间字节标识动作（`0x30` 准备/开始、`0x31` 开始、`0x35` 结束）。
 
-**Judge Client → Server**：
-```
-SCORE,<exam_id>,<current_score>,<max_score>\n
-```
+### 3.2 就绪 / 结束通知（端口 7000，二进制）
 
-### 3.2 Token 下发（端口 7002）
+**Competitor → Judge**（收到开始准备帧后）：`0x02 0x32 0x03`（就绪）；考试收尾时：`0x02 0x35 0x03`（结束）。
 
-**Judge Client → Competitor**：
-```
-<timestamp>,<sensor_type>,<token>\n
-```
+### 3.3 Token 下发（端口 7002，二进制定长 12 字节）
 
-示例：
+**Judge → Competitor**，每个 token 恰好 12 字节（大端）：
 ```
-1683356400123,hdl32,7
-1683356400123,gps,3
-1683356400123,camera_ts,5
+0x02 | timestamp(int64, 8B, 大端) | type(char,1B) | key(uint8,1B) | 0x03
 ```
+数据来源为 `token.csv`：`timestamp,type,token`。裁判端按时间戳顺序、以固定节奏（`FixTimeSendStrategy`）下发；参赛软件仅当 `token.timestamp ≥ 当前真值时间戳` 时触发一次检测应答。
 
-**下发频率**：默认 100ms 一个批次（覆盖上一时间窗的所有 token）
+### 3.4 答案上传（端口 7003，二进制变长）
 
-**sensor_type 枚举**：
-- `camera_ts`：相机时间戳 CSV
-- `gps` / `imu`：GPS/IMU CSV
-- `gear` / `odom` / `steer`：CAN 总线 CSV
-- `hdl32`：多线激光 PCAP
-- `urg`：单线激光 LMS
-- `gt_od` / `gt_global` / `gt_mp`：真值（不同任务）
-
-### 3.3 答案上传（端口 7003）
-
-**Competitor → Judge Client**：
-
-**OD 赛道格式**：
+**Competitor → Judge**，单帧布局（大端；`imgLen` 为裁剪目标图字节数）：
 ```
-<timestamp>|<json_detections>\n
+0x02 | len(uint32,4B) | type(char,1B='O') | timestamp(int64,8B) | boxType(int8,1B)
+     | box(4×2 double,64B) | attribute(int8,1B) | longitude(double,8B) | latitude(double,8B)
+     | cols(uint16,2B) | rows(uint16,2B) | image(imgLen) | 0x03
 ```
+其中 `len = 95 + imgLen`，整帧字节数 `= 101 + imgLen`。`SU` 赛道答案复用同类头部（框/位姿字段不同）。裁判端以 `IoU≥阈值`（默认 0.8）与预载真值匹配计分，再经 `6000` 回传服务器。
 
-其中 `json_detections`：
-```json
-[
-  {"x1":100, "y1":200, "x2":180, "y2":260, "class":"car", "conf":0.92},
-  {"x1":220, "y1":150, "x2":260, "y2":240, "class":"pedestrian", "conf":0.85}
-]
-```
-
-**SU 赛道格式**（本地定位）：
-```
-<timestamp>|<x>,<y>,<z>,<qx>,<qy>,<qz>,<qw>\n
-```
-
-**SU 赛道格式**（场景理解）：
-```
-<timestamp>|<semantic_grid_id>\n
-```
-
-### 3.4 心跳消息（可选，端口 7000）
-
-```
-HEARTBEAT,<client_id>,<seq>\n
-```
-
-配置：
+心跳（可选，端口 7000）：裁判端周期性探测参赛软件在线状态；单机联调建议关闭以减少假离线。配置：
 ```properties
 client.soft.heartbeat.enable=true
 client.soft.heartbeat.interval=10000  # 10s 一次
@@ -200,26 +163,28 @@ private slots:
 connect(server, &TCPServer::newMessage, this, &Handler::onMessage);
 ```
 
-## 7. 时序示例
+## 7. 时序示例（实测流程）
 
 ```
-t=0     Server ─── START,EXAM-2023-001 ───► Judge
-t=10ms  Judge  ─── LOAD:EXAM-2023-001 ────► Competitor (7001)
-t=500ms Competitor ─── READY ─────────────► Judge (7000)
-t=1s    Judge  ─── START ─────────────────► Competitor (7001)
-        Judge 开始计时（30 分钟）
-t=1.1s  Judge  ─── 1683356400123,hdl32,7 ─► Competitor (7002)
-        Judge  ─── 1683356400123,gps,3 ───► Competitor (7002)
-        ... (每 100ms 一批)
+t=0     Server ─── "dispathExam|{...examType...}"\n ──► Judge (6001)  // 设定考题/题型
+t=10ms  Server ─── "readyExam|{}"\n ──────────────────► Judge (6001)
+        Judge  ─── 02 30 03 ──────────────────────────► Competitor (7001)  // 开始准备
+        Competitor ─── 02 32 03 ─────────────────────► Judge (7000)       // 就绪
+t=1s    Server ─── "beginExam|{examLib:1,port:6000}"\n ► Judge (6001)
+        Judge  ─── connect ──────────────────────────► Server (6000)       // 回传通道
+        Judge  ─── 02 31 03 ─────────────────────────► Competitor (7001)  // 开始
+        Judge  开始计时；启动 token 下发
+t=1.1s  Judge  ─── 02|ts(8B)|type|key|03 ─────────────► Competitor (7002)  // 定长12B token
+        ... 按时间戳批量 ...
 
-t=2.0s  Competitor ─── 1683356400123|[{...}] ──► Judge (7003)  [答案 1]
-t=2.05s Judge → Judge App: 计算 IoU，得分 +1.2
-t=2.1s  Judge ─── SCORE,EXAM-2023-001,1.2,500 ──► Server (6001)
+t=2.0s  Competitor ─── 02|len|'O'|ts|box...|img|03 ───► Judge (7003)       // 答案帧
+        Judge: IoU(≥0.8) 与预载真值匹配 → 计分
+t=2.1s  Judge  ─── 答案/分数 ─────────────────────────► Server (6000)
+        ... 循环 ...
 
-... 循环 ...
-
-t=30min Judge  ─── STOP ─────────────────► Competitor (7001)
-        Judge  ─── STOP ─────────────────► Server (6001)
+t=30min Server ─── 结束指令 ───────────────────────────► Judge (6001)
+        Judge  ─── 02 35 03 ──────────────────────────► Competitor (7001)
+        Competitor ─── 02 35 03 ─────────────────────► Judge (7000)        // 结束
 ```
 
 ## 8. 已知限制

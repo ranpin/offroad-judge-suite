@@ -20,6 +20,7 @@
   - [裁判客户端 (Java)](#裁判客户端-java)
   - [评判应用 (C++/Qt)](#评判应用-cqt)
   - [参赛端 Mock 客户端 (C++/Qt)](#参赛端-mock-客户端-cqt)
+  - [协议级下发端参考实现 (Python)](#协议级下发端参考实现-python)
   - [服务器端可视化 (ROS/C++)](#服务器端可视化-rosc)
 - [评测流程时序图](#评测流程时序图)
 - [通信协议规范](#通信协议规范)
@@ -133,10 +134,13 @@ offroad-judge-suite/
 │   └── reproduce-from-scratch.md      # 从零复现：构建 + 三端联调
 │
 ├── tools/                             # 可复用工具集
-│   └── data-encryptor/                # 多传感器数据加密工具
-│       ├── encrypt_data.py            # 主程序（267 行，独立运行）
-│       ├── config.ini                 # 输入路径配置
-│       └── README.md                  # 使用说明
+│   ├── data-encryptor/                # 多传感器数据加密工具
+│   │   ├── encrypt_data.py            # 主程序（267 行，独立运行）
+│   │   ├── config.ini                 # 输入路径配置
+│   │   └── README.md                  # 使用说明
+│   └── soft-judge-reference/          # 协议级下发端参考实现（可复现闭环）
+│       ├── judge_server.py            # 纯 Python，驱动 mock-client 跑通 START→token→答案
+│       └── README.md                  # 用法与端口说明
 │
 ├── mock-client/                       # C++/Qt 参赛端模拟软件
 │   ├── od/                            # OD 赛道模拟客户端源码
@@ -285,31 +289,52 @@ main.cpp                     # 事件循环 + 主流程编排
 └── groundtruthfile.cpp/h    # GT 文件读取与解析
 ```
 
-**编译**：
+**编译（已在 Ubuntu 24.04 / Qt 5.15 / OpenCV 4.6 实测通过）**：
 
 ```bash
+sudo apt install -y qtbase5-dev build-essential libopencv-dev
 cd mock-client/od
-qmake MockClient.pro
+qmake MockClient.pro      # .pro 自动探测 pkg-config(opencv4)，否则回退 opencv_world
 make -j$(nproc)
-./MockClient
+./MockClient              # 交互输入 y / 0，作为服务端等待 7001 开始帧
 ```
 
-**运行流程**：
+> **无专有组件即可复现闭环**：`tools/soft-judge-reference/judge_server.py` 可扮演下发端，
+> 驱动上面源码构建的 `MockClient` 完成 `START→token→答案`（实测解出 111 条答案帧）。
+> 步骤见 [`docs/reproduce-from-scratch.md`](docs/reproduce-from-scratch.md) 路径二·最小闭环。
+
+**运行流程（实测核对）**：
 
 ```
-[启动] 打开端口 7001/7002
+[启动] 读 config.yml(picture_path/timeStamp_path) + 约定路径的 gt_detection.csv
+   ↓   作为服务端打开 7001(指令) / 7002(token)
+[等待] 阻塞等待 7001 收到开始帧 0x02 0x30 0x03 → 打印 "Receive start signal."
    ↓
-[等待] 裁判端下发考题路径 → 加载数据
+[就绪] 反连裁判 7000，写就绪帧 0x02 0x32 0x03
    ↓
-[就绪] 通过 7003 通知裁判端
+[循环] 反连裁判 7003；每收到一帧 12B token(7002)：
+   - 解出 timestamp / type / key
+   - 当 timestamp ≥ 当前 GT 时间戳时，裁剪 Camera 图并组一帧答案
+   - 通过 7003 上传二进制答案帧（见 communication-protocol.md）
    ↓
-[循环] 每 100ms：
-   - 从 7002 接收 timestamp + token
-   - 用 token 解密对应数据
-   - 生成答案（随机或从 GT 复制）
-   - 通过 7003 上传答案
-   ↓
-[结束] 收到 stop 指令或超时
+[结束] 答题时限到或收到结束帧
+```
+
+---
+
+### 协议级下发端参考实现 (Python)
+
+**位置**：[`tools/soft-judge-reference/judge_server.py`](tools/soft-judge-reference/judge_server.py)
+
+**角色**：在没有专有裁判客户端 / 考题包的前提下，用纯标准库 Python 实现 `communication-protocol.md`
+的线协议，扮演“服务器 + 裁判下发端”，驱动源码构建的参赛端完成一次**可复现端到端闭环**。
+
+**已实测结果**（Ubuntu 24.04 / Qt 5.15 / OpenCV 4.6，单机）：参赛端打印 `Receive start signal.`；
+参考实现收到就绪帧 `023203`、回放全部 token 后解出 **111 条答案帧**，timestamp 单调递增、
+box/lon-lat/图像尺寸等字段完整可解码 → 判定 `闭环贯通`。
+
+```bash
+python3 tools/soft-judge-reference/judge_server.py --token-csv <...>/token.csv
 ```
 
 ---
@@ -352,15 +377,15 @@ cd ~/catkin_ws && catkin_make && source devel/setup.bash
 ```
 Server              Judge Client          Competitor            Judge App
   │                      │                     │                     │
-  │ ─── 6001: START ────►│                     │                     │
+  │ ── 6001: readyExam/beginExam ─►│            │                     │
   │                      │                     │                     │
-  │                      │ ── 7001: EXAM_PATH ─►                     │
+  │                      │ ── 7001: 02 30 03 ─►│                     │
   │                      │                     │                     │
-  │                      │ ◄── 7000: READY ────│                     │
+  │                      │ ◄── 7000: 02 32 03 ─│                     │
   │                      │                     │                     │
   │                      │   [计时开始，最多 5 分钟准备时间]           │
   │                      │                     │                     │
-  │                      │ ── 7002: TOKEN(t1) ►│                     │
+  │                      │ ── 7002: token(ts) ►│                     │
   │                      │                     │ decrypt(t1)         │
   │                      │                     │ process()           │
   │                      │ ◄── 7003: ANSWER(1)─│                     │
@@ -378,28 +403,27 @@ Server              Judge Client          Competitor            Judge App
 
 ## 通信协议规范
 
-### 消息格式（TCP 明文）
+> ⚠️ 本节为**实测核对后**的线协议摘要，与早期草稿不同。完整字节级定义、字段偏移、
+> 心跳/超时与真实端口方向以 [`docs/communication-protocol.md`](docs/communication-protocol.md) 为准。
 
-**裁判 → 参赛软件：Token 消息**
+**端口与角色（实测）**：裁判客户端 A 监听 `6001/7000/7003`；参赛端 C 监听 `7001/7002`。
+连接建立方向与消息逻辑方向相反——A 作为客户端**反连** C 的 7001/7002，C 收到开始帧后
+**反连** A 的 7000/7003。
 
-```
-<timestamp>,<type>,<token>\n
-```
-示例：`1683356400123,hdl32,7\n`
+**6001（服务器→A，文本按行、竖线分隔）**：`<cmd>|<jsonArgs>\n`（UTF-8），如
+`readyExam|{}`、`beginExam|{"examLib":1,"port":6000}`。
 
-**参赛软件 → 裁判：答案消息**
+**7001 指令帧（定长 3 字节）**：`0x02 <act> 0x03`，`0x30`=准备、`0x31`=开始、`0x35`=结束。
 
-```
-<timestamp>|<detections>
-```
-其中 `detections` 是 JSON 数组：`[{"x1":..., "y1":..., "x2":..., "y2":..., "class":"car"}, ...]`
+**7002 token 帧（定长 12 字节，大端）**：`0x02 + timestamp(int64,8B) + type(1B) + key(1B) + 0x03`。
 
-**服务器 → 裁判：指令消息**
+**7003 答案帧（变长，大端）**：`0x02 | len(uint32,4B) | 'O' | timestamp(int64) | boxType(int8)
+| box(4×2 double=64B) | attribute(int8) | lon(double) | lat(double) | cols(u16) | rows(u16) | image | 0x03`。
 
-```
-<command>,<param>\n
-```
-命令集合：`START`, `STOP`, `PAUSE`, `RESUME`, `LOAD_EXAM:<path>`
+### 参考实现（可复现闭环）
+
+[`tools/soft-judge-reference/`](tools/soft-judge-reference/) 提供一份**纯 Python、无第三方依赖**的下发端
+参考实现，仅凭上述协议即可驱动源码构建的参赛端跑通 `START→token→答案` 全链路，无需任何专有二进制/考题包。
 
 ### 通信协议详细文档
 

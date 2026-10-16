@@ -32,6 +32,13 @@ SOURCES += main.cpp \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
-INCLUDEPATH += /usr/local/include
-LIBS += -L/usr/local/lib
-LIBS += -lopencv_world
+# OpenCV linkage: prefer pkg-config (stock Ubuntu, apt split libs); fall back to
+# the bundled unified world lib used by the delivered runtime layout.
+packagesExist(opencv4) {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += opencv4
+} else {
+    INCLUDEPATH += /usr/local/include
+    LIBS += -L/usr/local/lib
+    LIBS += -lopencv_world
+}
