@@ -140,6 +140,8 @@ offroad-judge-suite/
 │   │   └── README.md                  # 使用说明
 │   └── soft-judge-reference/          # 协议级下发端参考实现（可复现闭环）
 │       ├── judge_server.py            # 纯 Python，驱动 mock-client 跑通 START→token→答案
+│       ├── run_e2e_demo.sh            # 一键自验：从源码构建 C + 驱动 + 断言答案帧>0
+│       ├── sample-data/               # 合成极小样例（非真实考题/真值），供零依赖复现
 │       └── README.md                  # 用法与端口说明
 │
 ├── mock-client/                       # C++/Qt 参赛端模拟软件
@@ -424,6 +426,10 @@ Server              Judge Client          Competitor            Judge App
 
 [`tools/soft-judge-reference/`](tools/soft-judge-reference/) 提供一份**纯 Python、无第三方依赖**的下发端
 参考实现，仅凭上述协议即可驱动源码构建的参赛端跑通 `START→token→答案` 全链路，无需任何专有二进制/考题包。
+
+```bash
+bash tools/soft-judge-reference/run_e2e_demo.sh   # 一键自验：自带合成样例，零外部数据即 PASS
+```
 
 ### 通信协议详细文档
 

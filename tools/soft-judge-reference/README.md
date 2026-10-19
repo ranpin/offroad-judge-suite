@@ -17,7 +17,21 @@ START(02 30 03) → BEGIN(02 31 03) → 按时间戳下发 token → 接收并�
 | 7000 | 本脚本 | 参赛端 | 就绪 `02 32 03` / 结束 `02 35 03` |
 | 7003 | 本脚本 | 参赛端 | 答案帧（变长，含裁剪图）|
 
-## 用法
+## 一键复现（自带合成样例，零外部数据）
+
+本目录自带 `sample-data/`（**合成的极小样例，非任何真实考题/真值**）与一键脚本，
+clone 后即可完整复现闭环，无需专有二进制或考题包：
+
+```bash
+bash run_e2e_demo.sh      # 从源码构建 mock-client → 驱动 → 断言答案帧 > 0
+# 期望末行：[demo] PASS: repo-only end-to-end closed loop reproduced
+```
+
+脚本会 out-of-tree 构建（不污染仓库），用 `sample-data` 暂存运行目录，启动源码构建的
+参赛端并用 `judge_server.py` 跑完 `START→token→答案`，最后校验确实收到可解码答案帧。
+依赖：`bash` + Qt5/`qmake`/`g++`/`libopencv`（构建 C）+ `python3`（仅标准库）。
+
+## 手动用法
 
 ```bash
 # 1) 先构建并启动参赛端（其 config.yml 需指向本地考题数据）

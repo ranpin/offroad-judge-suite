@@ -80,6 +80,19 @@ SU 赛道同理：`cd ../su && qmake && make`。
 
 ### 路径二·最小闭环（无专有组件，已实测复现）
 
+**一键（推荐，零外部数据）**：本目录自带合成样例与脚本，clone 后直接：
+
+```bash
+bash tools/soft-judge-reference/run_e2e_demo.sh
+# 末行输出：[demo] PASS: repo-only end-to-end closed loop reproduced
+```
+
+它从源码构建 `mock-client/od`（out-of-tree，不污染仓库）、用
+`tools/soft-judge-reference/sample-data/`（合成极小样例，非真实考题/真值）暂存运行目录，
+启动源码构建的参赛端并驱动 `START→token→答案`，最后断言收到可解码答案帧。
+
+<details><summary>展开：手动分步（用真实本地考题数据时）</summary>
+
 仅凭本仓库即可跑通一次端到端协议闭环——用 `tools/soft-judge-reference/judge_server.py`
 扮演“服务器+裁判下发端”，直接驱动**源码构建**的 C，不依赖 `client.jar`/`LocalClient`/`examLib.zip`：
 
@@ -99,6 +112,8 @@ python3 ../../tools/soft-judge-reference/judge_server.py --token-csv <...>/token
 - 下发端收到就绪帧 `023203`，回放全部 token 后 C 上传 **111 条答案帧**，
   timestamp 单调递增、可解码出 box / lon-lat / 图像尺寸等全字段；
 - 判定输出：`闭环贯通（START→token→答案 全链路）`。
+
+</details>
 
 ### 数据加密工具（Python）
 ```bash
@@ -150,6 +165,7 @@ rosrun server_node server_node    # 或按需 roslaunch
 - [ ] 加密工具能对新数据产出加密包 + `token.csv`
 - [x] `mock-client` 在标准 Ubuntu(qtbase5-dev+libopencv-dev) `qmake && make` 构建通过
 - [x] **最小闭环**：源码构建的 C + `judge_server.py` 跑通 START→token→答案（实测 111 答案帧）
+- [x] **一键自验**：`bash tools/soft-judge-reference/run_e2e_demo.sh` 零外部数据即 PASS（自带合成样例）
 - [ ] 三端（A/B 用归档二进制 + C 用源码）按序启动，端口无冲突（需专有归档）
 - [ ] 一次完整答题：裁判日志 START→token→答案→SCORE 闭环（需 examLib.zip 考题包）
 - [ ] 最终分数落在 0–500（OD）或 0–1000（OD+SU）
