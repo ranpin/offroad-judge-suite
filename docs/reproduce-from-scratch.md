@@ -166,6 +166,7 @@ rosrun server_node server_node    # 或按需 roslaunch
 - [x] `mock-client` 在标准 Ubuntu(qtbase5-dev+libopencv-dev) `qmake && make` 构建通过
 - [x] **最小闭环**：源码构建的 C + `judge_server.py` 跑通 START→token→答案（实测 111 答案帧）
 - [x] **一键自验**：`bash tools/soft-judge-reference/run_e2e_demo.sh` 零外部数据即 PASS（自带合成样例）
+- [x] **持续自验**：GitHub Actions `e2e-closed-loop` 在干净 runner 上自动构建+跑通该 demo（见顶部 badge）
 - [ ] 三端（A/B 用归档二进制 + C 用源码）按序启动，端口无冲突（需专有归档）
 - [ ] 一次完整答题：裁判日志 START→token→答案→SCORE 闭环（需 examLib.zip 考题包）
 - [ ] 最终分数落在 0–500（OD）或 0–1000（OD+SU）

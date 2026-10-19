@@ -1,0 +1,25 @@
+name: e2e-closed-loop
+
+# Self-verifies repo reproducibility: on a clean runner, builds the competitor
+# mock-client from source and drives the full wire-protocol closed loop using
+# only the bundled synthetic sample (no proprietary binaries / no exam data).
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt5 / OpenCV / build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential qtbase5-dev libopencv-dev python3
+
+      - name: Run self-contained end-to-end closed-loop demo
+        run: bash tools/soft-judge-reference/run_e2e_demo.sh

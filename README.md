@@ -1,5 +1,7 @@
 # Multi-Sensor Autonomous Off-Road Challenge Judging Suite (2023)
 
+[![e2e-closed-loop](https://github.com/ranpin/offroad-judge-suite/actions/workflows/e2e-closed-loop.yml/badge.svg)](https://github.com/ranpin/offroad-judge-suite/actions/workflows/e2e-closed-loop.yml)
+
 > 面向 2023 年自动驾驶越野挑战赛的多传感器评测基础设施个人项目归档
 >
 > A judging & data-security infrastructure for an autonomous off-road challenge (2023 season).
